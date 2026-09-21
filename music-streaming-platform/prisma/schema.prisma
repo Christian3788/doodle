@@ -1,0 +1,111 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["fullTextSearchPostgres"]
+}
+
+model User {
+  id            String            @id @default(uuid()) @db.Uuid
+  email         String            @unique @db.VarChar(255)
+  passwordHash  String?           @db.VarChar(255)
+  displayName   String            @db.VarChar(100)
+  avatarUrl     String?           @db.Text
+  createdAt     DateTime          @default(now()) @db.Timestamptz
+  updatedAt     DateTime          @updatedAt @db.Timestamptz
+
+  playlists     Playlist[]
+  likes         Like[]
+  history       PlaybackHistory[]
+  artistProfile Artist?
+}
+
+model Artist {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @unique @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bio       String?  @db.Text
+  bannerUrl String?  @db.Text
+  verified  Boolean  @default(false)
+  albums    Album[]
+  tracks    Track[]
+}
+
+model Album {
+  id          String   @id @default(uuid()) @db.Uuid
+  title       String   @db.VarChar(255)
+  coverUrl    String   @db.Text
+  releaseDate DateTime @db.Date
+  artistId    String   @db.Uuid
+  artist      Artist   @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  tracks      Track[]
+
+  @@index([artistId])
+  @@index([title])
+}
+
+model Track {
+  id             String          @id @default(uuid()) @db.Uuid
+  title          String          @db.VarChar(255)
+  durationSec    Int
+  audioKey       String          @db.VarChar(512)
+  bitrateKbps    Int             @default(320)
+  albumId        String          @db.Uuid
+  album          Album           @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  artistId       String          @db.Uuid
+  artist         Artist          @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  playlistTracks PlaylistTrack[]
+  likes          Like[]
+  history        PlaybackHistory[]
+
+  @@index([albumId])
+  @@index([artistId])
+  @@index([title])
+}
+
+model Playlist {
+  id          String          @id @default(uuid()) @db.Uuid
+  title       String          @db.VarChar(150)
+  description String?         @db.Text
+  coverUrl    String?         @db.Text
+  isPublic    Boolean         @default(true)
+  ownerId     String          @db.Uuid
+  owner       User            @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  tracks      PlaylistTrack[]
+  createdAt   DateTime        @default(now()) @db.Timestamptz
+}
+
+model PlaylistTrack {
+  id         String   @id @default(uuid()) @db.Uuid
+  playlistId String   @db.Uuid
+  playlist   Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  trackId    String   @db.Uuid
+  track      Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  position   Int
+
+  @@unique([playlistId, trackId])
+  @@index([playlistId, position])
+}
+
+model Like {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trackId   String   @db.Uuid
+  track     Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @db.Timestamptz
+
+  @@unique([userId, trackId])
+}
+
+model PlaybackHistory {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trackId   String   @db.Uuid
+  track     Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  playedAt  DateTime @default(now()) @db.Timestamptz
+}
